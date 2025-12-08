@@ -1,5 +1,0 @@
-{
-  "name": "TradeSignal AI",
-  "description": "Advanced crypto trade signal generator using Gemini AI. Provides Short, Mid, and Long-term analysis using Fundamental, Technical, Quant, Graph Theory, and Sentiment models.",
-  "requestFramePermissions": []
-}
