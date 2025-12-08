@@ -1,18 +1,32 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
+<head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>TradeSignal AI</title>
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
     
+    <!-- Telegram Web App -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    
+    <!-- Styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      body { background-color: #0f172a; color: #e2e8f0; overscroll-behavior: none; }
+      .fade-in { animation: fadeIn 0.5s ease-out forwards; }
+      @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+      /* Custom Scrollbar */
+      ::-webkit-scrollbar { width: 6px; }
+      ::-webkit-scrollbar-track { background: #0f172a; }
+      ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+      ::-webkit-scrollbar-thumb:hover { background: #475569; }
+    </style>
+
     <!-- React Dependencies (UMD) -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <script src="https://unpkg.com/history@5/umd/history.production.min.js"></script>
-    <script src="https://unpkg.com/react-router@6.22.3/umd/react-router.production.min.js"></script>
-    <script src="https://unpkg.com/react-router-dom@6.22.3/umd/react-router-dom.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/history@5/umd/history.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-router@6.22.3/umd/react-router.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-router-dom@6.22.3/umd/react-router-dom.production.min.js"></script>
     <script src="https://unpkg.com/recharts/umd/Recharts.js"></script>
 
     <!-- Babel for JSX -->
@@ -24,21 +38,15 @@
       window.GoogleGenAI = GoogleGenAI;
     </script>
 
-    <!-- Config -->
+    <!-- ENV CONFIGURATION -->
     <script>
       window.process = {
         env: {
-          // TODO: Replace with your actual Gemini API Key
-          API_KEY: AIzaSyCmiwMvtQrc2NEInyxGJejeC7KLxQZCHLQ
+          // TODO: REPLACE THIS WITH YOUR ACTUAL API KEY
+          API_KEY: "PASTE_YOUR_API_KEY_HERE"
         }
       };
     </script>
-
-    <style>
-      body { background-color: #0f172a; color: #e2e8f0; overscroll-behavior: none; }
-      .fade-in { animation: fadeIn 0.5s ease-out forwards; }
-      @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-    </style>
 <script type="importmap">
 {
   "imports": {
@@ -55,16 +63,541 @@
 </script>
 <link rel="stylesheet" href="/index.css">
 </head>
-  <body>
+<body>
     <div id="root"></div>
 
-    <!-- Application Scripts (Flattened structure) -->
-    <script type="text/babel" src="geminiService.js"></script>
-    <script type="text/babel" src="SignalCard.js"></script>
-    <script type="text/babel" src="AnalysisBlock.js"></script>
-    <script type="text/babel" src="Dashboard.js"></script>
-    <script type="text/babel" src="TokenAnalysis.js"></script>
-    <script type="text/babel" src="App.js"></script>
-  <script type="module" src="/index.tsx"></script>
+    <!-- MAIN APPLICATION SCRIPT -->
+    <script type="text/babel">
+      // 1. GLOBAL IMPORTS
+      const { useState, useEffect } = React;
+      const { HashRouter, Routes, Route, Navigate, useNavigate, useParams } = ReactRouterDOM;
+      const { ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } = Recharts;
+
+      // 2. SERVICE LAYER
+      const cleanJsonString = (str) => {
+        let cleaned = str.replace(/```json/g, '').replace(/```/g, '').trim();
+        const firstBrace = cleaned.indexOf('{');
+        const firstBracket = cleaned.indexOf('[');
+        if (firstBrace === -1 && firstBracket === -1) return cleaned;
+        const start = firstBrace !== -1 && (firstBracket === -1 || firstBrace < firstBracket) ? firstBrace : firstBracket;
+        const lastBrace = cleaned.lastIndexOf('}');
+        const lastBracket = cleaned.lastIndexOf(']');
+        const end = Math.max(lastBrace, lastBracket);
+        if (start !== -1 && end !== -1) return cleaned.substring(start, end + 1);
+        return cleaned;
+      };
+
+      const GeminiService = {
+        fetchTrendingTokens: async () => {
+          const apiKey = window.process?.env?.API_KEY;
+          if (!apiKey || apiKey.includes("PASTE_YOUR")) {
+            console.warn("API Key missing or invalid");
+            // Mock data fallback
+            return [
+              { symbol: "BTC", name: "Bitcoin", price: "$96,500", change24h: "+1.2%" },
+              { symbol: "ETH", name: "Ethereum", price: "$3,650", change24h: "+2.5%" },
+              { symbol: "SOL", name: "Solana", price: "$185", change24h: "+5.1%" },
+              { symbol: "XRP", name: "Ripple", price: "$2.42", change24h: "-1.1%" },
+            ];
+          }
+
+          const GoogleGenAI = window.GoogleGenAI;
+          if (!GoogleGenAI) return [];
+          const ai = new GoogleGenAI({ apiKey });
+
+          try {
+            const response = await ai.models.generateContent({
+              model: "gemini-2.5-flash",
+              contents: `Identify 4 trending crypto tokens (excluding BTC/ETH) + Add BTC & ETH at top. 
+              Tasks: Search "trending crypto coins". Get USD price & 24h change.
+              Output: JSON Array only. No Markdown.
+              Example: [{ "symbol": "BTC", "name": "Bitcoin", "price": "$96k", "change24h": "+2%" }]`,
+              config: { tools: [{ googleSearch: {} }] },
+            });
+            return JSON.parse(cleanJsonString(response.text || "[]"));
+          } catch (error) {
+            console.error("Trending Error:", error);
+            return [
+              { symbol: "BTC", name: "Bitcoin", price: "$96,500", change24h: "+1.2%" },
+              { symbol: "ETH", name: "Ethereum", price: "$3,650", change24h: "+2.5%" }
+            ];
+          }
+        },
+
+        analyzeToken: async (symbol) => {
+          const apiKey = window.process?.env?.API_KEY;
+          if (!apiKey || apiKey.includes("PASTE_YOUR")) throw new Error("API Key missing");
+          const GoogleGenAI = window.GoogleGenAI;
+          if (!GoogleGenAI) throw new Error("SDK not loaded");
+          const ai = new GoogleGenAI({ apiKey });
+
+          const prompt = `
+            Act as a Quant Trader. Analyze ${symbol}/USDT.
+            PHASE 1: REAL-TIME DATA (Use googleSearch)
+            - Price, News, RSI, Funding Rates, On-Chain.
+            PHASE 2: 5-DIMENSIONAL ANALYSIS
+            1. FUNDAMENTAL
+            2. TECHNICAL
+            3. QUANTITATIVE
+            4. GRAPH THEORY
+            5. SENTIMENT
+            PHASE 3: SIGNALS (Short, Mid, Long Term)
+            OUTPUT: Valid JSON ONLY.
+            {
+              "symbol": "${symbol}",
+              "currentPrice": "$...",
+              "trend": "Up/Down",
+              "timestamp": "Today",
+              "signals": [
+                {
+                  "timeframe": "Short-term",
+                  "assetPair": "${symbol}/USDT",
+                  "direction": "LONG/SHORT",
+                  "duration": "...",
+                  "entryZone": "...",
+                  "leverage": "...",
+                  "stopLoss": "...",
+                  "positionRisk": "...",
+                  "riskRewardRatio": "...",
+                  "tp1": "...", "tp2": "...", "tp3": "...",
+                  "strategyNote": "...",
+                  "technicalJustification": ["..."],
+                  "fundamentalContext": ["..."]
+                }
+              ],
+              "deepAnalysis": [
+                {
+                  "categoryName": "Fundamental",
+                  "score": 85,
+                  "methods": [
+                    { "name": "Network Growth", "value": "...", "interpretation": "Bullish", "details": "..." }
+                  ]
+                }
+              ]
+            }
+          `;
+
+          try {
+            const response = await ai.models.generateContent({
+              model: "gemini-2.5-flash",
+              contents: prompt,
+              config: { tools: [{ googleSearch: {} }] },
+            });
+            return JSON.parse(cleanJsonString(response.text || "{}"));
+          } catch (error) {
+            console.error("Analysis Error:", error);
+            throw error;
+          }
+        }
+      };
+
+      // 3. COMPONENTS
+      const SignalCard = ({ signal }) => {
+        const isLong = signal.direction === 'LONG';
+        const colorClass = isLong ? 'text-emerald-400' : 'text-rose-400';
+        const bgClass = isLong ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-rose-500/10 border-rose-500/30';
+        const badgeClass = isLong ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300';
+
+        return (
+          <div className={`rounded-xl border ${bgClass} p-5 shadow-lg relative overflow-hidden transition-all hover:shadow-xl hover:scale-[1.01] duration-300`}>
+            <div className="flex justify-between items-start mb-4">
+              <div>
+                <h3 className="text-lg font-bold text-slate-100 flex items-center gap-2">
+                  {signal.timeframe}
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-bold tracking-wider ${badgeClass}`}>
+                    {signal.direction}
+                  </span>
+                </h3>
+                <p className="text-sm text-slate-400 mt-1">{signal.assetPair} • {signal.duration} • {signal.leverage}</p>
+              </div>
+              <div className="text-right">
+                  <div className="text-xs text-slate-500 uppercase font-bold tracking-wider">R:R Ratio</div>
+                  <div className="text-lg font-mono font-bold text-indigo-300">{signal.riskRewardRatio}</div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 mb-6">
+              <div className="bg-slate-900/40 rounded-lg p-3 border border-slate-700/50">
+                <span className="text-xs text-slate-500 block uppercase font-semibold">Entry Zone</span>
+                <span className="text-base font-mono font-bold text-white">{signal.entryZone}</span>
+              </div>
+              <div className="bg-slate-900/40 rounded-lg p-3 border border-slate-700/50 relative overflow-hidden">
+                <div className={`absolute top-0 right-0 w-1 h-full ${isLong ? 'bg-rose-500' : 'bg-emerald-500'} opacity-50`}></div>
+                <span className="text-xs text-slate-500 block uppercase font-semibold">Stop Loss</span>
+                <span className="text-base font-mono font-bold text-white">{signal.stopLoss}</span>
+                <span className="text-xs text-slate-400 block mt-1">Risk: {signal.positionRisk}</span>
+              </div>
+            </div>
+
+            <div className="space-y-2 mb-6">
+              <div className="flex justify-between items-center text-sm">
+                  <span className="text-slate-400">TP1</span>
+                  <span className={`font-mono font-bold ${colorClass}`}>{signal.tp1}</span>
+              </div>
+              <div className="flex justify-between items-center text-sm">
+                  <span className="text-slate-400">TP2</span>
+                  <span className={`font-mono font-bold ${colorClass}`}>{signal.tp2}</span>
+              </div>
+              <div className="flex justify-between items-center text-sm">
+                  <span className="text-slate-400">TP3</span>
+                  <span className={`font-mono font-bold ${colorClass}`}>{signal.tp3}</span>
+              </div>
+            </div>
+
+            <div className="border-t border-slate-700/50 pt-4">
+              <h4 className="text-sm font-bold text-slate-300 mb-2">Rationale</h4>
+              <ul className="list-disc list-inside space-y-1">
+                  {signal.technicalJustification.slice(0, 3).map((point, idx) => (
+                      <li key={idx} className="text-xs text-slate-400 leading-relaxed">{point}</li>
+                  ))}
+              </ul>
+              
+              <div className="mt-4 bg-slate-800/50 p-2 rounded text-xs text-slate-400 italic">
+                  <span className="text-indigo-400 font-bold not-italic">Strategy: </span>
+                  {signal.strategyNote}
+              </div>
+            </div>
+          </div>
+        );
+      };
+
+      const AnalysisBlock = ({ category }) => {
+        const [isOpen, setIsOpen] = useState(false);
+
+        const getScoreColor = (score) => {
+          if (score >= 70) return 'text-emerald-400';
+          if (score <= 30) return 'text-rose-400';
+          return 'text-amber-400';
+        };
+
+        const getInterpretationColor = (interp) => {
+          switch (interp) {
+              case 'Bullish': return 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30';
+              case 'Bearish': return 'bg-rose-500/20 text-rose-400 border-rose-500/30';
+              default: return 'bg-slate-500/20 text-slate-400 border-slate-500/30';
+          }
+        };
+
+        return (
+          <div className="bg-slate-800/40 border border-slate-700 rounded-xl overflow-hidden mb-4">
+            <button 
+              onClick={() => setIsOpen(!isOpen)}
+              className="w-full px-5 py-4 flex items-center justify-between hover:bg-slate-800/60 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                  <div className={`text-lg font-bold ${getScoreColor(category.score)} font-mono`}>
+                      {category.score}
+                  </div>
+                  <h3 className="font-semibold text-slate-200">{category.categoryName}</h3>
+              </div>
+              <div className="flex items-center gap-2">
+                  <span className="text-xs text-slate-500 hidden sm:inline-block">{category.methods.length} methods</span>
+                  <svg 
+                      className={`w-5 h-5 text-slate-400 transform transition-transform ${isOpen ? 'rotate-180' : ''}`} 
+                      fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                  >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+              </div>
+            </button>
+
+            {isOpen && (
+              <div className="px-5 pb-5 pt-1 bg-slate-900/30 border-t border-slate-700/50">
+                  <div className="space-y-4 mt-3">
+                      {category.methods.map((method, idx) => (
+                          <div key={idx} className="flex flex-col sm:flex-row sm:items-start gap-3 text-sm">
+                              <div className="min-w-[140px] font-medium text-slate-300">
+                                  {method.name}
+                              </div>
+                              <div className="flex-1">
+                                  <div className="flex items-center gap-2 mb-1">
+                                      <span className={`text-xs px-2 py-0.5 rounded border ${getInterpretationColor(method.interpretation)}`}>
+                                          {method.interpretation}
+                                      </span>
+                                      <span className="font-mono text-slate-200">{method.value}</span>
+                                  </div>
+                                  <p className="text-xs text-slate-400 leading-relaxed">{method.details}</p>
+                              </div>
+                          </div>
+                      ))}
+                  </div>
+              </div>
+            )}
+          </div>
+        );
+      };
+
+      // 4. PAGES
+      const Dashboard = () => {
+        const [tokens, setTokens] = useState([]);
+        const [loading, setLoading] = useState(true);
+        const navigate = useNavigate();
+
+        useEffect(() => {
+          const loadTokens = async () => {
+            try {
+              const data = await GeminiService.fetchTrendingTokens();
+              setTokens(data);
+            } catch (err) {
+              console.error("Failed to load trending tokens", err);
+            } finally {
+              setLoading(false);
+            }
+          };
+          loadTokens();
+        }, []);
+
+        const handleSearch = (e) => {
+          e.preventDefault();
+          const formData = new FormData(e.currentTarget);
+          const symbol = formData.get('symbol');
+          if (symbol) {
+              navigate(`/analysis/${symbol.toUpperCase()}`);
+          }
+        };
+
+        return (
+          <div className="space-y-8 animate-fade-in">
+            <div className="text-center space-y-4 py-10">
+              <h2 className="text-4xl md:text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400">
+                Intelligent Crypto Signals
+              </h2>
+              <p className="text-slate-400 max-w-xl mx-auto text-lg">
+                AI-powered trade analysis combining Technicals, Fundamentals, Quantitative models, and On-chain Graph Theory.
+              </p>
+              
+              <form onSubmit={handleSearch} className="max-w-md mx-auto mt-8 relative">
+                  <input 
+                      name="symbol"
+                      type="text" 
+                      placeholder="Enter Token Symbol (e.g. BTC, SOL, DOGE)" 
+                      className="w-full bg-slate-800 border border-slate-700 text-white px-5 py-4 rounded-full shadow-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-center uppercase tracking-widest font-bold placeholder:text-slate-600 placeholder:normal-case placeholder:tracking-normal"
+                  />
+                  <button type="submit" className="absolute right-2 top-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-full p-2.5 transition-colors">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                  </button>
+              </form>
+            </div>
+
+            <div>
+              <h3 className="text-xl font-bold text-slate-200 mb-4 flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                  Trending & Major Assets
+              </h3>
+              
+              {loading ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {[1,2,3,4].map(i => (
+                          <div key={i} className="h-24 bg-slate-800/50 rounded-xl animate-pulse"></div>
+                      ))}
+                  </div>
+              ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {tokens.map((token) => (
+                          <div 
+                              key={token.symbol} 
+                              onClick={() => navigate(`/analysis/${token.symbol}`)}
+                              className="group bg-slate-800 border border-slate-700 hover:border-indigo-500/50 p-5 rounded-xl cursor-pointer transition-all hover:bg-slate-800/80 flex justify-between items-center"
+                          >
+                              <div className="flex items-center gap-4">
+                                  <div className="w-12 h-12 rounded-full bg-slate-700 flex items-center justify-center font-bold text-white shadow-inner">
+                                      {token.symbol.substring(0, 1)}
+                                  </div>
+                                  <div>
+                                      <h4 className="font-bold text-lg text-white group-hover:text-indigo-400 transition-colors">{token.name}</h4>
+                                      <span className="text-xs text-slate-500 font-mono">{token.symbol}</span>
+                                  </div>
+                              </div>
+                              <div className="text-right">
+                                  <div className="font-mono font-bold text-lg text-slate-200">{token.price}</div>
+                                  <div className={`text-sm font-bold ${token.change24h.includes('-') ? 'text-rose-400' : 'text-emerald-400'}`}>
+                                      {token.change24h}
+                                  </div>
+                              </div>
+                          </div>
+                      ))}
+                  </div>
+              )}
+            </div>
+          </div>
+        );
+      };
+
+      const TokenAnalysis = () => {
+        const { symbol } = useParams();
+        const navigate = useNavigate();
+        const [data, setData] = useState(null);
+        const [loading, setLoading] = useState(true);
+        const [error, setError] = useState(null);
+
+        useEffect(() => {
+          if (!symbol) return;
+
+          const fetchData = async () => {
+            setLoading(true);
+            setError(null);
+            try {
+              const result = await GeminiService.analyzeToken(symbol);
+              setData(result);
+            } catch (err) {
+              setError("Failed to generate analysis. Please try again.");
+            } finally {
+              setLoading(false);
+            }
+          };
+
+          fetchData();
+        }, [symbol]);
+
+        if (loading) {
+          return (
+            <div className="min-h-[60vh] flex flex-col items-center justify-center space-y-6">
+              <div className="relative w-24 h-24">
+                  <div className="absolute inset-0 border-4 border-indigo-900 rounded-full"></div>
+                  <div className="absolute inset-0 border-t-4 border-indigo-500 rounded-full animate-spin"></div>
+              </div>
+              <div className="text-center space-y-2">
+                  <h3 className="text-xl font-bold text-white">Analyzing {symbol}...</h3>
+                  <p className="text-slate-400 text-sm">Processing 5 quantitative models & searching live data</p>
+              </div>
+            </div>
+          );
+        }
+
+        if (error || !data) {
+          return (
+            <div className="text-center py-20">
+              <div className="text-rose-400 mb-4 text-xl font-bold">{error || "Token not found"}</div>
+              <button 
+                  onClick={() => navigate('/')} 
+                  className="px-6 py-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-white transition-colors"
+              >
+                  Back to Dashboard
+              </button>
+            </div>
+          );
+        }
+
+        const chartData = data.deepAnalysis.map(cat => ({
+          subject: cat.categoryName.replace(' Theory', '').replace(' Analysis', ''),
+          A: cat.score,
+          fullMark: 100,
+        }));
+
+        return (
+          <div className="space-y-8 pb-10">
+            {/* Header */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-6">
+              <div>
+                  <button onClick={() => navigate('/')} className="text-slate-500 hover:text-white text-sm mb-2 flex items-center gap-1 transition-colors">
+                      ← Back
+                  </button>
+                  <h1 className="text-4xl font-extrabold text-white flex items-center gap-3">
+                      {data.symbol}
+                      <span className="text-2xl text-slate-500 font-normal">/ USDT</span>
+                  </h1>
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-3 mt-2">
+                      <div className="flex items-center gap-4">
+                          <span className="text-2xl font-mono text-indigo-300 font-bold">{data.currentPrice}</span>
+                          <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${
+                              data.trend === 'Up' ? 'bg-emerald-500/20 text-emerald-400' : 
+                              data.trend === 'Down' ? 'bg-rose-500/20 text-rose-400' : 'bg-slate-500/20 text-slate-400'
+                          }`}>
+                              Trend: {data.trend}
+                          </span>
+                      </div>
+                      <div className="flex items-center gap-2 text-xs text-slate-500 bg-slate-900/50 px-2 py-1 rounded border border-slate-800">
+                          <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                          Updated: {data.timestamp}
+                      </div>
+                  </div>
+              </div>
+              
+              <div className="h-48 w-full md:w-64 -ml-4 md:ml-0">
+                  <ResponsiveContainer width="100%" height="100%">
+                      <RadarChart cx="50%" cy="50%" outerRadius="70%" data={chartData}>
+                          <PolarGrid stroke="#334155" />
+                          <PolarAngleAxis dataKey="subject" tick={{ fill: '#94a3b8', fontSize: 10 }} />
+                          <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} axisLine={false} />
+                          <Radar name={data.symbol} dataKey="A" stroke="#818cf8" strokeWidth={2} fill="#6366f1" fillOpacity={0.3} />
+                      </RadarChart>
+                  </ResponsiveContainer>
+              </div>
+            </div>
+
+            {/* Signals Section */}
+            <div className="space-y-6">
+              <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                  Trade Signals
+              </h2>
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  {data.signals.map((signal, idx) => (
+                      <SignalCard key={idx} signal={signal} />
+                  ))}
+              </div>
+            </div>
+
+            {/* Deep Analysis Section */}
+            <div className="space-y-4 pt-8">
+              <h2 className="text-xl font-bold text-white flex items-center gap-2 mb-6">
+                  Deep Dive Analysis (5-Model Consensus)
+              </h2>
+              
+              <div className="grid grid-cols-1 gap-2">
+                  {data.deepAnalysis.map((category, idx) => (
+                      <AnalysisBlock key={idx} category={category} />
+                  ))}
+              </div>
+            </div>
+          </div>
+        );
+      };
+
+      // 5. APP ROOT
+      const App = () => {
+        useEffect(() => {
+          if (window.Telegram?.WebApp) {
+            window.Telegram.WebApp.ready();
+            window.Telegram.WebApp.expand();
+            window.Telegram.WebApp.setHeaderColor('#0f172a');
+            window.Telegram.WebApp.setBackgroundColor('#0f172a');
+          }
+        }, []);
+
+        return (
+          <HashRouter>
+            <div className="min-h-screen bg-slate-900 text-slate-100 font-sans selection:bg-indigo-500 selection:text-white">
+              <header className="sticky top-0 z-50 bg-slate-900/90 backdrop-blur-md border-b border-slate-800">
+                <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center font-bold text-white">
+                      TS
+                    </div>
+                    <h1 className="text-xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-400">
+                      TradeSignal AI
+                    </h1>
+                  </div>
+                  <div className="text-xs font-mono text-slate-500 hidden sm:block">
+                    Powered by Gemini 2.5
+                  </div>
+                </div>
+              </header>
+
+              <main className="max-w-5xl mx-auto px-4 py-6">
+                <Routes>
+                  <Route path="/" element={<Dashboard />} />
+                  <Route path="/analysis/:symbol" element={<TokenAnalysis />} />
+                  <Route path="*" element={<Navigate to="/" replace />} />
+                </Routes>
+              </main>
+            </div>
+          </HashRouter>
+        );
+      };
+
+      const root = ReactDOM.createRoot(document.getElementById('root'));
+      root.render(<App />);
+    </script>
+<script type="module" src="/index.tsx"></script>
 </body>
 </html>
