@@ -76,11 +76,6 @@
             transform: scale(0.98);
         }
 
-        .asset-card.selected {
-            border-color: var(--accent);
-            background: #1e293b;
-        }
-
         .asset-symbol {
             font-weight: 800;
             font-size: 18px;
@@ -201,19 +196,6 @@
             letter-spacing: 0.5px;
         }
 
-        .analysis-list {
-            list-style: none;
-            padding: 0;
-            margin: 0;
-        }
-
-        .analysis-list li {
-            font-size: 12px;
-            margin-bottom: 6px;
-            padding-left: 12px;
-            border-left: 2px solid var(--text-secondary);
-        }
-
         .rationale-box {
             background: rgba(0,0,0,0.2);
             padding: 10px;
@@ -250,6 +232,7 @@
         <div class="asset-grid" id="asset-list">
             <!-- Populated by JS -->
         </div>
+        <div id="error-box" style="display:none; color:var(--danger); font-size:12px; text-align:center; padding:10px;"></div>
     </div>
 
     <!-- Loader -->
@@ -276,9 +259,14 @@
 
 <script>
     // --- Configuration ---
-    const API_KEY = "AIzaSyCmiwMvtQrc2NEInyxGJejeC7KLxQZCHLQ"; // Provided Key
-    const MODEL_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent";
+    const API_KEY = "AIzaSyCmiwMvtQrc2NEInyxGJejeC7KLxQZCHLQ"; 
     
+    // Primary and Fallback Models
+    const MODEL_PRIMARY = "gemini-2.5-flash";
+    const MODEL_FALLBACK = "gemini-pro";
+
+    const BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models/";
+
     // Telegram WebApp Setup
     const tg = window.Telegram.WebApp;
     tg.expand();
@@ -286,7 +274,7 @@
     tg.MainButton.color = "#38bdf8";
 
     // Global State
-    let currentData = null; // Stores the JSON response from AI
+    let currentData = null;
 
     // --- Initialization ---
     async function initApp() {
@@ -295,11 +283,9 @@
             document.getElementById('selection-view').style.display = 'none';
             document.getElementById('loader').style.display = 'block';
 
-            // 1. Fetch Trending + BTC + ETH
             const trendingRes = await fetch('https://api.coingecko.com/api/v3/search/trending');
             const trendingJson = await trendingRes.json();
             
-            // Extract top 4 trending
             const topTrend = trendingJson.coins.slice(0, 4).map(c => ({
                 id: c.item.id,
                 symbol: c.item.symbol,
@@ -307,19 +293,16 @@
                 thumb: c.item.thumb
             }));
 
-            // Prepare list including BTC & ETH
             const assets = [
                 {id: 'bitcoin', symbol: 'BTC', name: 'Bitcoin'},
                 {id: 'ethereum', symbol: 'ETH', name: 'Ethereum'},
                 ...topTrend
             ];
 
-            // Get Prices
             const ids = assets.map(a => a.id).join(',');
             const priceRes = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=usd&include_24hr_change=true`);
             const priceJson = await priceRes.json();
 
-            // Render Grid
             const grid = document.getElementById('asset-list');
             grid.innerHTML = '';
             
@@ -343,14 +326,25 @@
             document.getElementById('selection-view').style.display = 'block';
 
         } catch (e) {
-            alert("Error fetching market data: " + e.message);
+            showError("Market Data Error: " + e.message);
         }
+    }
+
+    async function callGemini(modelName, payload) {
+        const url = `${BASE_URL}${modelName}:generateContent?key=${API_KEY}`;
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload)
+        });
+        return await response.json();
     }
 
     // --- Core Analysis Logic ---
     async function runAnalysis(asset, price, change) {
         document.getElementById('selection-view').style.display = 'none';
         document.getElementById('loader').style.display = 'block';
+        document.getElementById('error-box').style.display = 'none';
         
         const statusMsgs = [
             "Running Graph Theory Algorithms...", 
@@ -365,97 +359,92 @@
             msgIdx++;
         }, 1500);
 
-        // Construct the prompt
         const promptText = `
-        Act as a world-class Quantitative Analyst, Graph Theorist, and Crypto Trader.
-        Target Asset: ${asset.name} (${asset.symbol.toUpperCase()})
-        Current Price: $${price} USD
-        24h Change: ${change}%
+        Act as a Quantitative Analyst.
+        Asset: ${asset.name} (${asset.symbol.toUpperCase()})
+        Price: $${price}
+        Change: ${change}%
         
-        PERFORM A DEEP REAL-TIME SIMULATION ANALYSIS using the following methods:
-        1. FUNDAMENTAL: NVT Ratio, Active Addresses, Dev Activity, Inflation Schedule, TVL/Mcap.
-        2. TECHNICAL: RSI, MACD, Bollinger Bands, Moving Averages (EMA 20/50/200), Fibonacci Retracement.
-        3. QUANT: Volatility Clustering, Mean Reversion, Momentum Oscillators, Order Flow Imbalance, Statistical Arbitrage potential.
-        4. GRAPH THEORY: Network Centrality, Clustering Coefficient, PageRank (On-chain), Small World Phenomenon, Network Density.
-        5. SENTIMENTAL: Social Volume, Fear & Greed, Weighted Sentiment, Whale Watch, News Sentiment.
+        PERFORM ANALYSIS:
+        1. FUNDAMENTAL
+        2. TECHNICAL (RSI, MACD, EMA)
+        3. QUANT (Volatility, Momentum)
+        4. GRAPH THEORY (Network Activity)
+        5. SENTIMENTAL (Fear/Greed)
 
-        Based on this simulated complex analysis, generate 3 SIGNALS:
-        1. Short Term (Scalp/Day Trade)
-        2. Mid Term (Swing Trade)
-        3. Long Term (Position Trade)
-
-        RETURN ONLY RAW JSON. DO NOT USE MARKDOWN. The JSON structure must strictly follow:
+        GENERATE 3 SIGNALS (Short, Mid, Long Term).
+        RETURN RAW JSON ONLY. NO MARKDOWN. Structure:
         {
             "analysis_summary": {
-                "fundamental_score": "1-10",
-                "technical_score": "1-10",
-                "quant_score": "1-10",
-                "sentiment_score": "1-10"
+                "fundamental_score": "1-10", "technical_score": "1-10", "quant_score": "1-10"
             },
             "signals": {
                 "short": {
-                    "direction": "LONG or SHORT",
-                    "timeframe": "e.g. H1 - H4",
-                    "entry_zone": "price range",
-                    "leverage": "e.g. 5x - 10x",
-                    "stop_loss": "specific price",
-                    "risk_percent": "1-2%",
-                    "risk_reward": "e.g. 1:3",
-                    "tp1": "price",
-                    "tp2": "price",
-                    "tp3": "price",
-                    "strategy_note": "text",
-                    "technical_rationale": "specific indicators used",
-                    "fundamental_rationale": "context"
+                    "direction": "LONG/SHORT", "timeframe": "H1-H4", "entry_zone": "range", "leverage": "5x", "stop_loss": "price", "risk_percent": "1%", "risk_reward": "1:3", "tp1": "price", "tp2": "price", "tp3": "price", "strategy_note": "text", "technical_rationale": "text", "fundamental_rationale": "text"
                 },
-                "mid": { ...same structure... },
-                "long": { ...same structure... }
+                "mid": { ...same... },
+                "long": { ...same... }
             }
         }
         `;
 
-        try {
-            const response = await fetch(`${MODEL_ENDPOINT}?key=${API_KEY}`, {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({
-                    contents: [{ parts: [{ text: promptText }] }],
-                    generationConfig: { responseMimeType: "application/json" }
-                })
-            });
+        const payload = {
+            contents: [{ parts: [{ text: promptText }] }],
+            generationConfig: { responseMimeType: "application/json" }
+        };
 
-            const data = await response.json();
+        try {
+            // Try Primary Model
+            let data = await callGemini(MODEL_PRIMARY, payload);
+
+            // If Primary fails (error in response or no candidates), try Fallback
+            if (data.error || !data.candidates || data.candidates.length === 0) {
+                console.warn("Primary model failed, trying fallback...", data.error);
+                data = await callGemini(MODEL_FALLBACK, payload);
+            }
+
+            // Check if fallback also failed
+            if (data.error) {
+                throw new Error(data.error.message || "AI Service Unavailable");
+            }
+            if (!data.candidates || !data.candidates[0].content) {
+                throw new Error("No analysis generated. Try again.");
+            }
+
             clearInterval(msgInterval);
 
-            // Parse Gemini Response
+            // Parse Response
             const aiText = data.candidates[0].content.parts[0].text;
-            // Clean markdown if present (though responseMimeType should fix it)
             const cleanJson = aiText.replace(/```json/g, '').replace(/```/g, '');
             currentData = JSON.parse(cleanJson);
 
-            renderReport('short'); // Default view
+            renderReport('short'); 
             document.getElementById('loader').style.display = 'none';
             document.getElementById('report-view').style.display = 'block';
             
-            // Set Telegram Main Button
             tg.MainButton.setText("Back to Assets");
             tg.MainButton.show();
-            tg.MainButton.onClick(() => {
-                location.reload();
-            });
+            tg.MainButton.onClick(() => location.reload());
 
         } catch (error) {
             clearInterval(msgInterval);
-            alert("Analysis Failed: " + error.message);
-            location.reload();
+            showError("Analysis Failed: " + error.message);
         }
     }
 
-    // --- Rendering Logic ---
+    function showError(msg) {
+        document.getElementById('loader').style.display = 'none';
+        document.getElementById('selection-view').style.display = 'block';
+        const errBox = document.getElementById('error-box');
+        errBox.style.display = 'block';
+        errBox.innerText = msg;
+    }
+
     function renderReport(timeframe) {
-        // Update Tabs
         document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
         document.querySelector(`.tab[onclick="switchTab('${timeframe}')"]`).classList.add('active');
+
+        if(!currentData || !currentData.signals[timeframe]) return;
 
         const signal = currentData.signals[timeframe];
         const container = document.getElementById('signal-content');
@@ -482,7 +471,7 @@
                     <span class="value">${signal.leverage}</span>
                 </div>
 
-                <div class="section-title">Risk Management (Mandatory)</div>
+                <div class="section-title">Risk Management</div>
                 <div class="data-row">
                     <span class="label">Stop Loss (SL)</span>
                     <span class="value" style="color:var(--danger)">${signal.stop_loss}</span>
@@ -498,41 +487,41 @@
 
                 <div class="section-title">Profit Targets</div>
                 <div class="data-row">
-                    <span class="label">Take Profit 1</span>
+                    <span class="label">TP1</span>
                     <span class="value" style="color:var(--success)">${signal.tp1}</span>
                 </div>
                 <div class="data-row">
-                    <span class="label">Take Profit 2</span>
+                    <span class="label">TP2</span>
                     <span class="value" style="color:var(--success)">${signal.tp2}</span>
                 </div>
                 <div class="data-row">
-                    <span class="label">Take Profit 3</span>
+                    <span class="label">TP3</span>
                     <span class="value" style="color:var(--success)">${signal.tp3}</span>
                 </div>
 
                 <div style="margin-top:12px; font-size:12px; color:var(--warning); border:1px dashed var(--warning); padding:8px; border-radius:6px;">
-                    <strong>Strategy Note:</strong> ${signal.strategy_note}
+                    <strong>Note:</strong> ${signal.strategy_note}
                 </div>
             </div>
 
             <div class="signal-card">
-                <div class="section-title" style="margin-top:0">Analysis Rationale</div>
+                <div class="section-title" style="margin-top:0">Rationale</div>
                 
-                <p style="margin:5px 0; font-weight:bold; font-size:13px;">📊 Technical & Quant</p>
+                <p style="margin:5px 0; font-weight:bold; font-size:13px;">📊 Technical</p>
                 <div class="rationale-box">
                     ${signal.technical_rationale}
                 </div>
 
-                <p style="margin:10px 0 5px 0; font-weight:bold; font-size:13px;">📰 Fundamental & Sentiment</p>
+                <p style="margin:10px 0 5px 0; font-weight:bold; font-size:13px;">📰 Fundamental</p>
                 <div class="rationale-box">
                     ${signal.fundamental_rationale}
                 </div>
             </div>
             
             <div style="text-align:center; font-size:10px; color:var(--text-secondary); margin-top:20px;">
-                Scores: Fund: ${currentData.analysis_summary.fundamental_score}/10 | 
-                Tech: ${currentData.analysis_summary.technical_score}/10 | 
-                Quant: ${currentData.analysis_summary.quant_score}/10
+                F: ${currentData.analysis_summary.fundamental_score} | 
+                T: ${currentData.analysis_summary.technical_score} | 
+                Q: ${currentData.analysis_summary.quant_score}
             </div>
         `;
     }
@@ -541,7 +530,6 @@
         if(currentData) renderReport(tf);
     }
 
-    // Start
     initApp();
 
 </script>
