@@ -37,6 +37,7 @@
 
         // Safely access global variables created by the UMD scripts
         const ReactRouterDOM = window.ReactRouterDOM;
+        // Accessing the library via the window object, NO 'import' needed here.
         const GoogleGenerativeAI = window.GoogleGenerativeAI;
         
         if (!ReactRouterDOM) {
@@ -50,7 +51,7 @@
 
         const { HashRouter, Routes, Route, useNavigate, useParams } = ReactRouterDOM;
 
-        // Manual Icons (omitted for brevity, assume they are defined)
+        // Manual Icons 
         const Icons = {
             TrendingUp: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>,
             Zap: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>,
@@ -129,7 +130,7 @@
         const geminiService = new GeminiService();
 
         // ==========================================
-        // UI COMPONENTS (Same as before)
+        // UI COMPONENTS
         // ==========================================
         const SignalCard = ({ signal }) => {
             const isLong = signal.direction.toUpperCase().includes("LONG");
@@ -194,7 +195,7 @@
 
 
         // ==========================================
-        // PAGES (Same as before)
+        // PAGES
         // ==========================================
         const Dashboard = () => {
             const [tokens, setTokens] = React.useState([]);
