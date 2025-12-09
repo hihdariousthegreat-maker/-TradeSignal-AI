@@ -5,63 +5,47 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>TradeSignal AI</title>
     
-    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- React & ReactDOM (UMD for browser-only usage) -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     
-    <!-- React Router -->
     <script crossorigin src="https://unpkg.com/history@5/umd/history.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-router@6.3.0/umd/react-router.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-router-dom@6.3.0/umd/react-router-dom.production.min.js"></script>
     
-    <!-- Recharts (Charting Library) -->
     <script crossorigin src="https://unpkg.com/recharts@2.12.0/umd/Recharts.js"></script>
     
-    <!-- Lucide Icons -->
-    <script src="https://unpkg.com/lucide@latest"></script>
-    
-    <!-- Google GenAI SDK (ESM shim for browser) -->
-    <script type="importmap">
-      {
-        "imports": {
-          "@google/genai": "https://esm.run/@google/genai"
-        }
-      }
-    </script>
-
-    <!-- Babel for JSX compilation in browser -->
     <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
 
     <style>
         body { background-color: #0f172a; color: #e2e8f0; }
-        /* Hide scrollbar for cleaner mobile look */
         ::-webkit-scrollbar { width: 0px; background: transparent; }
+        .fade-in { animation: fadeIn 0.5s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
 <body>
     <div id="root"></div>
 
-    <script type="text/babel" data-type="module">
+    <script type="text/babel" data-type="module" data-presets="env,react">
+        
         // ==========================================
         // CONFIGURATION
         // ==========================================
-        const API_KEY = "AIzaSyCmiwMvtQrc2NEInyxGJejeC7KLxQZCHLQ"; // Provided Key
+        // REPLACE THIS WITH YOUR NEW KEY
+        const API_KEY = "AIzaSyCmiwMvtQrc2NEInyxGJejeC7KLxQZCHLQ"; 
 
-        // Access React Router globals
+        // GLOBALS
         const { HashRouter, Routes, Route, useNavigate, useParams, Link } = ReactRouterDOM;
-        // Access Recharts globals
         const { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } = Recharts;
 
         // ==========================================
-        // ICONS
+        // ICONS (Manual SVG definitions)
         // ==========================================
         const Icons = {
             TrendingUp: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>,
             Zap: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>,
-            BarChart2: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>,
             ChevronDown: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>,
             ChevronUp: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="18 15 12 9 6 15"></polyline></svg>,
             ArrowLeft: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>,
@@ -69,142 +53,92 @@
         };
 
         // ==========================================
-        // SERVICE: GEMINI API
+        // SERVICE: GEMINI API (Web SDK Version)
         // ==========================================
-        import { GoogleGenAI } from "@google/genai";
+        // We import directly from ESM.run to avoid importmap conflicts in Babel Standalone
+        import { GoogleGenerativeAI } from "https://esm.run/@google/generative-ai";
 
         class GeminiService {
             constructor() {
-                this.client = new GoogleGenAI({ apiKey: API_KEY });
-                this.modelName = "gemini-2.5-flash"; // Fast and capable
+                if (!API_KEY || API_KEY.includes("YOUR_NEW")) {
+                    console.error("API Key missing");
+                    this.genAI = null;
+                } else {
+                    // Initialize the Web SDK
+                    this.genAI = new GoogleGenerativeAI(API_KEY);
+                    this.model = this.genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+                }
             }
 
             async getTrendingTokens() {
+                if (!this.genAI) return this.getMockData();
+
                 const prompt = `
-                Identify the current top 3 trending cryptocurrency tokens excluding stablecoins.
-                Also always include BTC (Bitcoin) and ETH (Ethereum).
-                Return a strictly valid JSON array of objects.
-                Each object must have:
-                - symbol: string (e.g., "BTC")
-                - name: string (e.g., "Bitcoin")
-                - price: string (e.g., "$65,000")
-                - change24h: string (e.g., "+2.5%")
-                - reason: string (brief reason why it is trending, max 5 words)
-                
-                Example format:
-                [
-                    {"symbol": "BTC", "name": "Bitcoin", "price": "$64,200", "change24h": "+1.2%", "reason": "Market leader"},
-                    {"symbol": "SOL", "name": "Solana", "price": "$145", "change24h": "+5.4%", "reason": "High volume"}
-                ]
-                Do not wrap in markdown code blocks. Return only the raw JSON string.
+                Identify current top 3 trending crypto tokens (excluding stablecoins). Always include BTC and ETH.
+                Return strictly valid JSON array (no markdown):
+                [{"symbol": "BTC", "name": "Bitcoin", "price": "$64k", "change24h": "+1%", "reason": "Market"}]
                 `;
 
                 try {
-                    const response = await this.client.models.generateContent({
-                        model: this.modelName,
-                        contents: prompt,
-                        config: {
-                             // tools: [{ googleSearch: {} }] // Removed to simplify browser integration
-                        }
-                    });
-
-                    let text = response.text || "";
+                    const result = await this.model.generateContent(prompt);
+                    const response = await result.response;
+                    let text = response.text();
+                    // Clean markdown formatting if present
                     text = text.replace(/```json/g, '').replace(/```/g, '').trim();
                     return JSON.parse(text);
                 } catch (error) {
-                    console.error("Error fetching trending tokens:", error);
-                    // Fallback data if API fails or rate limits
-                    return [
-                        { symbol: "BTC", name: "Bitcoin", price: "Loading...", change24h: "0%", reason: "Core Asset" },
-                        { symbol: "ETH", name: "Ethereum", price: "Loading...", change24h: "0%", reason: "Core Asset" }
-                    ];
+                    console.error("API Error:", error);
+                    return this.getMockData();
                 }
             }
 
             async analyzeToken(symbol) {
+                if (!this.genAI) throw new Error("Invalid API Key");
+
                 const prompt = `
-                Perform a comprehensive real-time trading analysis for ${symbol} against USDT.
-                You act as a professional crypto hedge fund analyst.
+                Act as a crypto hedge fund analyst. Analyze ${symbol}/USDT.
+                Generate a 5x5 Matrix (Fundamental, Technical, Quant, Graph/On-Chain, Sentiment).
+                Generate 3 Signals (Short, Mid, Long term).
                 
-                MANDATORY ANALYSIS MATRIX (5x5):
-                1. Fundamental: Network activity, upgrades, roadmap, team news, competitive landscape.
-                2. Technical: RSI, MACD, Bollinger Bands, Moving Averages (EMA 50/200), Support/Resistance.
-                3. Quant: Volatility, Volume profiles, Order book depth, Liquidity, Historical probability.
-                4. Graph Theory/On-Chain: Wallet growth, Whale movements, Transaction count, MVRV ratio, Hashrate/Staking.
-                5. Sentiment: Social volume, Fear & Greed index, News sentiment, Influencer chatter, Retail vs Smart Money.
-
-                Based on this, generate 3 Trade Signals:
-                1. Short-term (Scalp/Intraday - H1/H4)
-                2. Mid-term (Swing - Daily)
-                3. Long-term (Position - Weekly)
-
-                Return STRICT JSON ONLY with this exact structure:
+                Return STRICT JSON ONLY (no markdown):
                 {
-                    "timestamp": "ISO String of current time",
+                    "timestamp": "${new Date().toISOString()}",
                     "currentPrice": "approx price",
                     "matrix": {
-                        "fundamental": ["point 1", "point 2", "point 3", "point 4", "point 5"],
-                        "technical": ["point 1", "point 2", "point 3", "point 4", "point 5"],
-                        "quant": ["point 1", "point 2", "point 3", "point 4", "point 5"],
-                        "graphTheory": ["point 1", "point 2", "point 3", "point 4", "point 5"],
-                        "sentiment": ["point 1", "point 2", "point 3", "point 4", "point 5"]
+                        "fundamental": ["p1", "p2", "p3", "p4", "p5"],
+                        "technical": ["p1", "p2", "p3", "p4", "p5"],
+                        "quant": ["p1", "p2", "p3", "p4", "p5"],
+                        "graphTheory": ["p1", "p2", "p3", "p4", "p5"],
+                        "sentiment": ["p1", "p2", "p3", "p4", "p5"]
                     },
                     "signals": [
                         {
-                            "type": "Short-Term",
-                            "direction": "LONG/SHORT",
-                            "timeframe": "H4",
-                            "entry": "price range",
-                            "leverage": "max 5x",
-                            "stopLoss": "price",
-                            "riskReward": "1:2",
-                            "takeProfit": ["tp1", "tp2", "tp3"],
-                            "rationale": "Brief technical justification"
+                            "type": "Short-Term", "direction": "LONG", "timeframe": "H4",
+                            "entry": "range", "leverage": "5x", "stopLoss": "price",
+                            "riskReward": "1:2", "takeProfit": ["tp1", "tp2"], "rationale": "text"
                         },
-                        {
-                            "type": "Mid-Term",
-                            "direction": "LONG/SHORT",
-                            "timeframe": "Daily",
-                            "entry": "price range",
-                            "leverage": "max 3x",
-                            "stopLoss": "price",
-                            "riskReward": "1:3",
-                            "takeProfit": ["tp1", "tp2", "tp3"],
-                            "rationale": "Brief justification"
-                        },
-                        {
-                            "type": "Long-Term",
-                            "direction": "LONG/SHORT",
-                            "timeframe": "Weekly",
-                            "entry": "price range",
-                            "leverage": "1x (Spot)",
-                            "stopLoss": "price",
-                            "riskReward": "1:5",
-                            "takeProfit": ["tp1", "tp2", "tp3"],
-                            "rationale": "Brief justification"
-                        }
+                        { "type": "Mid-Term", "direction": "SHORT", "timeframe": "1D", "entry": "...", "leverage": "3x", "stopLoss": "...", "riskReward": "...", "takeProfit": ["..."], "rationale": "..." },
+                        { "type": "Long-Term", "direction": "LONG", "timeframe": "1W", "entry": "...", "leverage": "1x", "stopLoss": "...", "riskReward": "...", "takeProfit": ["..."], "rationale": "..." }
                     ]
-                }
-                
-                Do not use markdown. Return raw JSON string.
-                `;
+                }`;
 
                 try {
-                    const response = await this.client.models.generateContent({
-                        model: this.modelName,
-                        contents: prompt,
-                        config: {
-                            // tools: [{ googleSearch: {} }] // Removed for simpler browser integration
-                        }
-                    });
-
-                    let text = response.text || "";
+                    const result = await this.model.generateContent(prompt);
+                    const response = await result.response;
+                    let text = response.text();
                     text = text.replace(/```json/g, '').replace(/```/g, '').trim();
                     return JSON.parse(text);
                 } catch (error) {
-                    console.error("Error analyzing token:", error);
-                    throw error;
+                    console.error("Analysis Error:", error);
+                    throw new Error("Failed to generate analysis");
                 }
+            }
+
+            getMockData() {
+                return [
+                    { symbol: "BTC", name: "Bitcoin", price: "$98,000", change24h: "+0.5%", reason: "Mock Data (No Key)" },
+                    { symbol: "ETH", name: "Ethereum", price: "$3,800", change24h: "-1.2%", reason: "Mock Data (No Key)" }
+                ];
             }
         }
 
@@ -320,7 +254,7 @@
             }, []);
 
             return (
-                <div className="p-4 max-w-lg mx-auto pb-20">
+                <div className="p-4 max-w-lg mx-auto pb-20 fade-in">
                     <header className="mb-6 flex items-center justify-between">
                         <div>
                             <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-400">TradeSignal AI</h1>
@@ -335,7 +269,7 @@
                         <h2 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-3">Market Leaders & Trending</h2>
                         {loading ? (
                             <div className="space-y-3">
-                                {[1,2,3,4,5].map(i => (
+                                {[1,2,3].map(i => (
                                     <div key={i} className="h-16 bg-slate-800/50 rounded-xl animate-pulse"></div>
                                 ))}
                             </div>
@@ -345,7 +279,7 @@
                                     <div 
                                         key={idx}
                                         onClick={() => navigate(`/analyze/${token.symbol}`)}
-                                        className="bg-slate-800/40 p-4 rounded-xl flex items-center justify-between border border-slate-700/50 active:scale-95 transition-transform cursor-pointer"
+                                        className="bg-slate-800/40 p-4 rounded-xl flex items-center justify-between border border-slate-700/50 active:scale-95 transition-transform cursor-pointer hover:bg-slate-800/60"
                                     >
                                         <div className="flex items-center gap-3">
                                             <div className="h-10 w-10 rounded-full bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center font-bold text-slate-200 border border-slate-600">
@@ -379,7 +313,7 @@
             const navigate = useNavigate();
             const [data, setData] = React.useState(null);
             const [error, setError] = React.useState(null);
-            const [activeTab, setActiveTab] = React.useState('signals'); // signals | analysis
+            const [activeTab, setActiveTab] = React.useState('signals');
 
             React.useEffect(() => {
                 const analyze = async () => {
@@ -389,15 +323,15 @@
                         const result = await geminiService.analyzeToken(symbol);
                         setData(result);
                     } catch (err) {
-                        setError("Analysis failed. Please try again.");
+                        setError("Analysis failed. Please check API Key.");
                     }
                 };
                 if (symbol) analyze();
             }, [symbol]);
 
             if (error) return (
-                <div className="p-8 text-center">
-                    <div className="text-red-400 mb-4"><Icons.AlertTriangle /></div>
+                <div className="p-8 text-center mt-10">
+                    <div className="text-red-400 mb-4 flex justify-center"><Icons.AlertTriangle /></div>
                     <p className="text-slate-300 mb-4">{error}</p>
                     <button onClick={() => navigate('/')} className="text-blue-400 underline">Go Back</button>
                 </div>
@@ -412,7 +346,7 @@
             );
 
             return (
-                <div className="p-4 max-w-lg mx-auto pb-20">
+                <div className="p-4 max-w-lg mx-auto pb-20 fade-in">
                     {/* Header */}
                     <div className="flex items-center gap-4 mb-6">
                         <button onClick={() => navigate('/')} className="p-2 bg-slate-800 rounded-full hover:bg-slate-700">
@@ -445,14 +379,14 @@
                     </div>
 
                     {/* Content */}
-                    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    <div>
                         {activeTab === 'signals' ? (
                             <div className="space-y-6">
                                 {data.signals.map((signal, idx) => (
                                     <SignalCard key={idx} signal={signal} />
                                 ))}
                                 <div className="p-3 bg-blue-900/10 border border-blue-500/20 rounded-lg text-xs text-blue-200">
-                                    <strong>Disclaimer:</strong> Trading crypto futures involves high risk. These signals are AI-generated for educational purposes. Use proper risk management.
+                                    <strong>Disclaimer:</strong> AI generated analysis. High risk. Not financial advice.
                                 </div>
                             </div>
                         ) : (
@@ -473,14 +407,6 @@
         // MAIN APP RENDER
         // ==========================================
         const App = () => {
-            React.useEffect(() => {
-                // Telegram WebApp Expansion
-                if (window.Telegram && window.Telegram.WebApp) {
-                    window.Telegram.WebApp.ready();
-                    window.Telegram.WebApp.expand();
-                }
-            }, []);
-
             return (
                 <HashRouter>
                     <Routes>
