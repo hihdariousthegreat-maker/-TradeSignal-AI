@@ -17,7 +17,7 @@
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
     <style>
-        body { background-color: #0f172a; color: #e2e8f0; font-family: sans-serif; }
+        body { background-color: #0f172a; color: #e2e8f0; font-family: sans-serif; -webkit-font-smoothing: antialiased; }
         ::-webkit-scrollbar { width: 0px; background: transparent; }
         .fade-in { animation: fadeIn 0.5s ease-in-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
@@ -26,22 +26,22 @@
 <body>
     <div id="root"></div>
 
-    <script type="text/babel" data-presets="env,react">
+    <script type="text/babel" data-presets="react">
+        
         // ==========================================
         // CONFIGURATION
         // ==========================================
         const API_KEY = "AIzaSyCmiwMvtQrc2NEInyxGJejeC7KLxQZCHLQ";
+
         // Safe check for globals
         const ReactRouterDOM = window.ReactRouterDOM;
-        
         if (!ReactRouterDOM) {
             document.body.innerHTML = "<div style='color:red; padding:20px'>Error: React Router failed to load. Please refresh.</div>";
             throw new Error("React Router not found");
         }
-
         const { HashRouter, Routes, Route, useNavigate, useParams } = ReactRouterDOM;
 
-        // Manual Icons to avoid external dependency issues
+        // Manual Icons (No external library needed)
         const Icons = {
             TrendingUp: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>,
             Zap: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>,
@@ -69,10 +69,7 @@
 
             async getTrendingTokens() {
                 if (!this.genAI) return this.getMockData();
-                
-                // Using a simpler prompt structure to ensure valid JSON
                 const prompt = `Return a JSON array of the top 3 trending crypto tokens + BTC & ETH. Format: [{"symbol":"BTC","name":"Bitcoin","price":"$95k","change24h":"+2%","reason":"ETF"}]`;
-
                 try {
                     const result = await this.model.generateContent(prompt);
                     const text = result.response.text().replace(/```json|```/g, '').trim();
@@ -85,7 +82,6 @@
 
             async analyzeToken(symbol) {
                 if (!this.genAI) throw new Error("API Key is missing. Edit the HTML file to add it.");
-
                 const prompt = `Analyze ${symbol}/USDT. Return strictly valid JSON:
                 {
                     "timestamp": "${new Date().toISOString()}",
@@ -103,7 +99,6 @@
                         {"type": "Long-Term", "direction": "LONG/SHORT", "timeframe": "1W", "entry": "0.00", "leverage": "1x", "stopLoss": "0.00", "riskReward": "1:5", "takeProfit": ["0.00"], "rationale": "reason"}
                     ]
                 }`;
-
                 try {
                     const result = await this.model.generateContent(prompt);
                     const text = result.response.text().replace(/```json|```/g, '').trim();
@@ -174,7 +169,6 @@
                 amber: "text-amber-400 border-amber-500/30",
                 rose: "text-rose-400 border-rose-500/30"
             };
-            
             return (
                 <div className={`border rounded-lg bg-slate-900/50 mb-3 ${colors[color].split(" ")[1]}`}>
                     <button onClick={() => setIsOpen(!isOpen)} className="w-full flex justify-between p-3 hover:bg-slate-800/50">
@@ -214,9 +208,7 @@
                         </div>
                         <div className="text-blue-400"><Icons.Zap /></div>
                     </header>
-
                     <h2 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4">Market Radar</h2>
-                    
                     {loading ? (
                         <div className="space-y-3">
                             {[1,2,3].map(i => <div key={i} className="h-20 bg-slate-800/50 rounded-xl animate-pulse"></div>)}
@@ -279,12 +271,10 @@
                         <button onClick={() => navigate('/')} className="p-2 bg-slate-800 rounded-full"><Icons.ArrowLeft /></button>
                         <h1 className="text-2xl font-bold">{symbol}/USDT</h1>
                     </div>
-
                     <div className="grid grid-cols-2 gap-2 bg-slate-800/50 p-1 rounded-lg mb-6">
                         <button onClick={() => setTab('signals')} className={`py-2 text-sm rounded ${tab==='signals'?'bg-blue-600 text-white':'text-slate-400'}`}>Signals</button>
                         <button onClick={() => setTab('analysis')} className={`py-2 text-sm rounded ${tab==='analysis'?'bg-blue-600 text-white':'text-slate-400'}`}>Analysis</button>
                     </div>
-
                     {tab === 'signals' ? (
                         <div>
                             {data.signals.map((s, i) => <SignalCard key={i} signal={s} />)}
