@@ -4,496 +4,546 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>TradeSignal AI</title>
-    
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    
-    <!-- React & ReactDOM (UMD for browser-only usage) -->
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    
-    <!-- React Router -->
-    <script crossorigin src="https://unpkg.com/history@5/umd/history.production.min.js"></script>
-    <script crossorigin src="https://unpkg.com/react-router@6.3.0/umd/react-router.production.min.js"></script>
-    <script crossorigin src="https://unpkg.com/react-router-dom@6.3.0/umd/react-router-dom.production.min.js"></script>
-    
-    <!-- Recharts (Charting Library) -->
-    <script crossorigin src="https://unpkg.com/recharts@2.12.0/umd/Recharts.js"></script>
-    
-    <!-- Lucide Icons -->
-    <script src="https://unpkg.com/lucide@latest"></script>
-    
-    <!-- Google GenAI SDK (ESM shim for browser) -->
-    <script type="importmap">
-      {
-        "imports": {
-          "@google/genai": "https://esm.run/@google/genai"
-        }
-      }
-    </script>
-
-    <!-- Babel for JSX compilation in browser -->
-    <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
-
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        body { background-color: #0f172a; color: #e2e8f0; }
-        /* Hide scrollbar for cleaner mobile look */
-        ::-webkit-scrollbar { width: 0px; background: transparent; }
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --accent: #38bdf8;
+            --success: #22c55e;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .container {
+            padding: 16px;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        /* Header */
+        header {
+            text-align: center;
+            margin-bottom: 24px;
+            border-bottom: 1px solid #334155;
+            padding-bottom: 16px;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 24px;
+            background: linear-gradient(90deg, #38bdf8, #818cf8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .subtitle {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+
+        /* Asset Grid */
+        .asset-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .asset-card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 12px;
+            text-align: center;
+            cursor: pointer;
+            border: 1px solid #334155;
+            transition: transform 0.2s, border-color 0.2s;
+        }
+
+        .asset-card:active {
+            transform: scale(0.98);
+        }
+
+        .asset-card.selected {
+            border-color: var(--accent);
+            background: #1e293b;
+        }
+
+        .asset-symbol {
+            font-weight: 800;
+            font-size: 18px;
+            display: block;
+        }
+
+        .asset-price {
+            font-size: 14px;
+            color: var(--success);
+            margin-top: 4px;
+            display: block;
+        }
+
+        /* Loading */
+        #loader {
+            display: none;
+            text-align: center;
+            padding: 40px;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid var(--card-bg);
+            border-top: 4px solid var(--accent);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 16px;
+        }
+
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        .loading-text {
+            font-size: 14px;
+            color: var(--accent);
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
+
+        /* Report View */
+        #report-view {
+            display: none;
+        }
+
+        .signal-tabs {
+            display: flex;
+            background: #0f172a;
+            border-radius: 8px;
+            padding: 4px;
+            margin-bottom: 16px;
+            border: 1px solid #334155;
+        }
+
+        .tab {
+            flex: 1;
+            text-align: center;
+            padding: 8px;
+            font-size: 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            color: var(--text-secondary);
+        }
+
+        .tab.active {
+            background: var(--card-bg);
+            color: var(--accent);
+            font-weight: bold;
+        }
+
+        .signal-card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 16px;
+            border: 1px solid #334155;
+            animation: fadeIn 0.5s;
+        }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .signal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #334155;
+        }
+
+        .direction-badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 12px;
+            text-transform: uppercase;
+        }
+
+        .long { background: rgba(34, 197, 94, 0.2); color: var(--success); }
+        .short { background: rgba(239, 68, 68, 0.2); color: var(--danger); }
+
+        .data-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 13px;
+        }
+
+        .label { color: var(--text-secondary); }
+        .value { font-weight: 600; font-family: monospace; }
+
+        .section-title {
+            font-size: 14px;
+            font-weight: bold;
+            color: var(--accent);
+            margin: 16px 0 8px 0;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .analysis-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .analysis-list li {
+            font-size: 12px;
+            margin-bottom: 6px;
+            padding-left: 12px;
+            border-left: 2px solid var(--text-secondary);
+        }
+
+        .rationale-box {
+            background: rgba(0,0,0,0.2);
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+
+        .refresh-btn {
+            width: 100%;
+            padding: 14px;
+            background: var(--accent);
+            color: #0f172a;
+            border: none;
+            border-radius: 12px;
+            font-weight: bold;
+            font-size: 16px;
+            cursor: pointer;
+            margin-top: 20px;
+        }
     </style>
 </head>
 <body>
-    <div id="root"></div>
 
-    <script type="text/babel" data-type="module">
-        // ==========================================
-        // CONFIGURATION
-        // ==========================================
-        const API_KEY = "AIzaSyCmiwMvtQrc2NEInyxGJejeC7KLxQZCHLQ"; // Provided Key
+<div class="container">
+    <header>
+        <h1>TradeSignal AI</h1>
+        <div class="subtitle">Multi-Model Quantitative Analysis</div>
+    </header>
 
-        // Access React Router globals
-        const { HashRouter, Routes, Route, useNavigate, useParams, Link } = ReactRouterDOM;
-        // Access Recharts globals
-        const { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } = Recharts;
+    <!-- Asset Selection View -->
+    <div id="selection-view">
+        <h3 style="margin-bottom:10px; font-size:14px; color:var(--text-secondary);">Select Asset to Analyze</h3>
+        <div class="asset-grid" id="asset-list">
+            <!-- Populated by JS -->
+        </div>
+    </div>
 
-        // ==========================================
-        // ICONS
-        // ==========================================
-        const Icons = {
-            TrendingUp: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>,
-            Zap: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>,
-            BarChart2: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>,
-            ChevronDown: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>,
-            ChevronUp: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="18 15 12 9 6 15"></polyline></svg>,
-            ArrowLeft: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>,
-            AlertTriangle: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
-        };
+    <!-- Loader -->
+    <div id="loader">
+        <div class="spinner"></div>
+        <div class="loading-text" id="loading-msg">Initializing Neural Nets...</div>
+    </div>
 
-        // ==========================================
-        // SERVICE: GEMINI API
-        // ==========================================
-        import { GoogleGenAI } from "@google/genai";
+    <!-- Analysis Report View -->
+    <div id="report-view">
+        <div class="signal-tabs">
+            <div class="tab active" onclick="switchTab('short')">Short Term</div>
+            <div class="tab" onclick="switchTab('mid')">Mid Term</div>
+            <div class="tab" onclick="switchTab('long')">Long Term</div>
+        </div>
 
-        class GeminiService {
-            constructor() {
-                this.client = new GoogleGenAI({ apiKey: API_KEY });
-                this.modelName = "gemini-2.5-flash"; // Fast and capable
-            }
+        <div id="signal-content">
+            <!-- Signal content injected here -->
+        </div>
 
-            async getTrendingTokens() {
-                const prompt = `
-                Identify the current top 3 trending cryptocurrency tokens excluding stablecoins.
-                Also always include BTC (Bitcoin) and ETH (Ethereum).
-                Return a strictly valid JSON array of objects.
-                Each object must have:
-                - symbol: string (e.g., "BTC")
-                - name: string (e.g., "Bitcoin")
-                - price: string (e.g., "$65,000")
-                - change24h: string (e.g., "+2.5%")
-                - reason: string (brief reason why it is trending, max 5 words)
-                
-                Example format:
-                [
-                    {"symbol": "BTC", "name": "Bitcoin", "price": "$64,200", "change24h": "+1.2%", "reason": "Market leader"},
-                    {"symbol": "SOL", "name": "Solana", "price": "$145", "change24h": "+5.4%", "reason": "High volume"}
-                ]
-                Do not wrap in markdown code blocks. Return only the raw JSON string.
-                `;
+        <button class="refresh-btn" onclick="location.reload()">Analyze Another Asset</button>
+    </div>
+</div>
 
-                try {
-                    const response = await this.client.models.generateContent({
-                        model: this.modelName,
-                        contents: prompt,
-                        config: {
-                             // tools: [{ googleSearch: {} }] // Removed to simplify browser integration
-                        }
-                    });
+<script>
+    // --- Configuration ---
+    const API_KEY = "AIzaSyCmiwMvtQrc2NEInyxGJejeC7KLxQZCHLQ"; // Provided Key
+    const MODEL_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent";
+    
+    // Telegram WebApp Setup
+    const tg = window.Telegram.WebApp;
+    tg.expand();
+    tg.MainButton.textColor = "#FFFFFF";
+    tg.MainButton.color = "#38bdf8";
 
-                    let text = response.text || "";
-                    text = text.replace(/```json/g, '').replace(/```/g, '').trim();
-                    return JSON.parse(text);
-                } catch (error) {
-                    console.error("Error fetching trending tokens:", error);
-                    // Fallback data if API fails or rate limits
-                    return [
-                        { symbol: "BTC", name: "Bitcoin", price: "Loading...", change24h: "0%", reason: "Core Asset" },
-                        { symbol: "ETH", name: "Ethereum", price: "Loading...", change24h: "0%", reason: "Core Asset" }
-                    ];
+    // Global State
+    let currentData = null; // Stores the JSON response from AI
+
+    // --- Initialization ---
+    async function initApp() {
+        try {
+            document.getElementById('loading-msg').innerText = "Scanning Market Data...";
+            document.getElementById('selection-view').style.display = 'none';
+            document.getElementById('loader').style.display = 'block';
+
+            // 1. Fetch Trending + BTC + ETH
+            const trendingRes = await fetch('https://api.coingecko.com/api/v3/search/trending');
+            const trendingJson = await trendingRes.json();
+            
+            // Extract top 4 trending
+            const topTrend = trendingJson.coins.slice(0, 4).map(c => ({
+                id: c.item.id,
+                symbol: c.item.symbol,
+                name: c.item.name,
+                thumb: c.item.thumb
+            }));
+
+            // Prepare list including BTC & ETH
+            const assets = [
+                {id: 'bitcoin', symbol: 'BTC', name: 'Bitcoin'},
+                {id: 'ethereum', symbol: 'ETH', name: 'Ethereum'},
+                ...topTrend
+            ];
+
+            // Get Prices
+            const ids = assets.map(a => a.id).join(',');
+            const priceRes = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=usd&include_24hr_change=true`);
+            const priceJson = await priceRes.json();
+
+            // Render Grid
+            const grid = document.getElementById('asset-list');
+            grid.innerHTML = '';
+            
+            assets.forEach(asset => {
+                if(priceJson[asset.id]) {
+                    const price = priceJson[asset.id].usd;
+                    const change = priceJson[asset.id].usd_24h_change.toFixed(2);
+                    const el = document.createElement('div');
+                    el.className = 'asset-card';
+                    el.innerHTML = `
+                        <span class="asset-symbol">${asset.symbol.toUpperCase()}</span>
+                        <span class="asset-price">$${price.toLocaleString()}</span>
+                        <span style="font-size:10px; color: ${change >= 0 ? 'var(--success)' : 'var(--danger)'}">${change}%</span>
+                    `;
+                    el.onclick = () => runAnalysis(asset, price, change);
+                    grid.appendChild(el);
                 }
-            }
+            });
 
-            async analyzeToken(symbol) {
-                const prompt = `
-                Perform a comprehensive real-time trading analysis for ${symbol} against USDT.
-                You act as a professional crypto hedge fund analyst.
-                
-                MANDATORY ANALYSIS MATRIX (5x5):
-                1. Fundamental: Network activity, upgrades, roadmap, team news, competitive landscape.
-                2. Technical: RSI, MACD, Bollinger Bands, Moving Averages (EMA 50/200), Support/Resistance.
-                3. Quant: Volatility, Volume profiles, Order book depth, Liquidity, Historical probability.
-                4. Graph Theory/On-Chain: Wallet growth, Whale movements, Transaction count, MVRV ratio, Hashrate/Staking.
-                5. Sentiment: Social volume, Fear & Greed index, News sentiment, Influencer chatter, Retail vs Smart Money.
+            document.getElementById('loader').style.display = 'none';
+            document.getElementById('selection-view').style.display = 'block';
 
-                Based on this, generate 3 Trade Signals:
-                1. Short-term (Scalp/Intraday - H1/H4)
-                2. Mid-term (Swing - Daily)
-                3. Long-term (Position - Weekly)
+        } catch (e) {
+            alert("Error fetching market data: " + e.message);
+        }
+    }
 
-                Return STRICT JSON ONLY with this exact structure:
-                {
-                    "timestamp": "ISO String of current time",
-                    "currentPrice": "approx price",
-                    "matrix": {
-                        "fundamental": ["point 1", "point 2", "point 3", "point 4", "point 5"],
-                        "technical": ["point 1", "point 2", "point 3", "point 4", "point 5"],
-                        "quant": ["point 1", "point 2", "point 3", "point 4", "point 5"],
-                        "graphTheory": ["point 1", "point 2", "point 3", "point 4", "point 5"],
-                        "sentiment": ["point 1", "point 2", "point 3", "point 4", "point 5"]
-                    },
-                    "signals": [
-                        {
-                            "type": "Short-Term",
-                            "direction": "LONG/SHORT",
-                            "timeframe": "H4",
-                            "entry": "price range",
-                            "leverage": "max 5x",
-                            "stopLoss": "price",
-                            "riskReward": "1:2",
-                            "takeProfit": ["tp1", "tp2", "tp3"],
-                            "rationale": "Brief technical justification"
-                        },
-                        {
-                            "type": "Mid-Term",
-                            "direction": "LONG/SHORT",
-                            "timeframe": "Daily",
-                            "entry": "price range",
-                            "leverage": "max 3x",
-                            "stopLoss": "price",
-                            "riskReward": "1:3",
-                            "takeProfit": ["tp1", "tp2", "tp3"],
-                            "rationale": "Brief justification"
-                        },
-                        {
-                            "type": "Long-Term",
-                            "direction": "LONG/SHORT",
-                            "timeframe": "Weekly",
-                            "entry": "price range",
-                            "leverage": "1x (Spot)",
-                            "stopLoss": "price",
-                            "riskReward": "1:5",
-                            "takeProfit": ["tp1", "tp2", "tp3"],
-                            "rationale": "Brief justification"
-                        }
-                    ]
-                }
-                
-                Do not use markdown. Return raw JSON string.
-                `;
+    // --- Core Analysis Logic ---
+    async function runAnalysis(asset, price, change) {
+        document.getElementById('selection-view').style.display = 'none';
+        document.getElementById('loader').style.display = 'block';
+        
+        const statusMsgs = [
+            "Running Graph Theory Algorithms...", 
+            "Calculating RSI & MACD Divergences...",
+            "Analyzing On-Chain Volume...", 
+            "Checking Whale Sentiment...",
+            "Finalizing Strategy..."
+        ];
+        let msgIdx = 0;
+        const msgInterval = setInterval(() => {
+            document.getElementById('loading-msg').innerText = statusMsgs[msgIdx % statusMsgs.length];
+            msgIdx++;
+        }, 1500);
 
-                try {
-                    const response = await this.client.models.generateContent({
-                        model: this.modelName,
-                        contents: prompt,
-                        config: {
-                            // tools: [{ googleSearch: {} }] // Removed for simpler browser integration
-                        }
-                    });
+        // Construct the prompt
+        const promptText = `
+        Act as a world-class Quantitative Analyst, Graph Theorist, and Crypto Trader.
+        Target Asset: ${asset.name} (${asset.symbol.toUpperCase()})
+        Current Price: $${price} USD
+        24h Change: ${change}%
+        
+        PERFORM A DEEP REAL-TIME SIMULATION ANALYSIS using the following methods:
+        1. FUNDAMENTAL: NVT Ratio, Active Addresses, Dev Activity, Inflation Schedule, TVL/Mcap.
+        2. TECHNICAL: RSI, MACD, Bollinger Bands, Moving Averages (EMA 20/50/200), Fibonacci Retracement.
+        3. QUANT: Volatility Clustering, Mean Reversion, Momentum Oscillators, Order Flow Imbalance, Statistical Arbitrage potential.
+        4. GRAPH THEORY: Network Centrality, Clustering Coefficient, PageRank (On-chain), Small World Phenomenon, Network Density.
+        5. SENTIMENTAL: Social Volume, Fear & Greed, Weighted Sentiment, Whale Watch, News Sentiment.
 
-                    let text = response.text || "";
-                    text = text.replace(/```json/g, '').replace(/```/g, '').trim();
-                    return JSON.parse(text);
-                } catch (error) {
-                    console.error("Error analyzing token:", error);
-                    throw error;
-                }
+        Based on this simulated complex analysis, generate 3 SIGNALS:
+        1. Short Term (Scalp/Day Trade)
+        2. Mid Term (Swing Trade)
+        3. Long Term (Position Trade)
+
+        RETURN ONLY RAW JSON. DO NOT USE MARKDOWN. The JSON structure must strictly follow:
+        {
+            "analysis_summary": {
+                "fundamental_score": "1-10",
+                "technical_score": "1-10",
+                "quant_score": "1-10",
+                "sentiment_score": "1-10"
+            },
+            "signals": {
+                "short": {
+                    "direction": "LONG or SHORT",
+                    "timeframe": "e.g. H1 - H4",
+                    "entry_zone": "price range",
+                    "leverage": "e.g. 5x - 10x",
+                    "stop_loss": "specific price",
+                    "risk_percent": "1-2%",
+                    "risk_reward": "e.g. 1:3",
+                    "tp1": "price",
+                    "tp2": "price",
+                    "tp3": "price",
+                    "strategy_note": "text",
+                    "technical_rationale": "specific indicators used",
+                    "fundamental_rationale": "context"
+                },
+                "mid": { ...same structure... },
+                "long": { ...same structure... }
             }
         }
+        `;
 
-        const geminiService = new GeminiService();
+        try {
+            const response = await fetch(`${MODEL_ENDPOINT}?key=${API_KEY}`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: promptText }] }],
+                    generationConfig: { responseMimeType: "application/json" }
+                })
+            });
 
-        // ==========================================
-        // COMPONENT: SignalCard
-        // ==========================================
-        const SignalCard = ({ signal }) => {
-            const isLong = signal.direction.toUpperCase().includes("LONG");
+            const data = await response.json();
+            clearInterval(msgInterval);
+
+            // Parse Gemini Response
+            const aiText = data.candidates[0].content.parts[0].text;
+            // Clean markdown if present (though responseMimeType should fix it)
+            const cleanJson = aiText.replace(/```json/g, '').replace(/```/g, '');
+            currentData = JSON.parse(cleanJson);
+
+            renderReport('short'); // Default view
+            document.getElementById('loader').style.display = 'none';
+            document.getElementById('report-view').style.display = 'block';
             
-            return (
-                <div className={`p-4 rounded-xl border ${isLong ? 'bg-green-900/10 border-green-500/30' : 'bg-red-900/10 border-red-500/30'} mb-4`}>
-                    <div className="flex justify-between items-start mb-3">
-                        <div>
-                            <span className={`text-xs font-bold px-2 py-1 rounded ${isLong ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
-                                {signal.direction}
-                            </span>
-                            <span className="text-xs text-slate-400 ml-2">{signal.type} ({signal.timeframe})</span>
-                        </div>
-                        <div className="text-right">
-                            <div className="text-xs text-slate-400">Leverage</div>
-                            <div className="text-sm font-mono font-bold text-yellow-400">{signal.leverage}</div>
-                        </div>
-                    </div>
+            // Set Telegram Main Button
+            tg.MainButton.setText("Back to Assets");
+            tg.MainButton.show();
+            tg.MainButton.onClick(() => {
+                location.reload();
+            });
 
-                    <div className="grid grid-cols-2 gap-4 text-sm mb-4">
-                        <div>
-                            <div className="text-slate-500 text-xs uppercase">Entry Zone</div>
-                            <div className="font-mono text-white">{signal.entry}</div>
-                        </div>
-                        <div className="text-right">
-                            <div className="text-slate-500 text-xs uppercase">Stop Loss</div>
-                            <div className="font-mono text-red-400 font-bold">{signal.stopLoss}</div>
-                        </div>
-                    </div>
+        } catch (error) {
+            clearInterval(msgInterval);
+            alert("Analysis Failed: " + error.message);
+            location.reload();
+        }
+    }
 
-                    <div className="space-y-2 mb-4">
-                        {signal.takeProfit.map((tp, idx) => (
-                            <div key={idx} className="flex justify-between text-xs items-center bg-slate-800/50 p-2 rounded">
-                                <span className="text-slate-400">TP {idx + 1}</span>
-                                <span className="text-green-400 font-mono">{tp}</span>
-                            </div>
-                        ))}
-                    </div>
+    // --- Rendering Logic ---
+    function renderReport(timeframe) {
+        // Update Tabs
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelector(`.tab[onclick="switchTab('${timeframe}')"]`).classList.add('active');
 
-                    <div className="pt-3 border-t border-slate-700">
-                        <p className="text-xs text-slate-400 italic">"{signal.rationale}"</p>
-                        <div className="mt-2 text-xs text-slate-500 flex justify-between">
-                            <span>Risk/Reward: <span className="text-white">{signal.riskReward}</span></span>
-                        </div>
-                    </div>
+        const signal = currentData.signals[timeframe];
+        const container = document.getElementById('signal-content');
+        
+        const directionClass = signal.direction.toUpperCase().includes('LONG') ? 'long' : 'short';
+
+        container.innerHTML = `
+            <div class="signal-card">
+                <div class="signal-header">
+                    <span style="font-weight:bold; font-size:16px;">${timeframe.toUpperCase()} TERM SIGNAL</span>
+                    <span class="direction-badge ${directionClass}">${signal.direction}</span>
                 </div>
-            );
-        };
 
-        // ==========================================
-        // COMPONENT: AnalysisBlock
-        // ==========================================
-        const AnalysisBlock = ({ title, items, color = "blue" }) => {
-            const [isOpen, setIsOpen] = React.useState(false);
+                <div class="data-row">
+                    <span class="label">Timeframe</span>
+                    <span class="value">${signal.timeframe}</span>
+                </div>
+                <div class="data-row">
+                    <span class="label">Entry Zone</span>
+                    <span class="value" style="color:var(--accent)">${signal.entry_zone}</span>
+                </div>
+                <div class="data-row">
+                    <span class="label">Leverage</span>
+                    <span class="value">${signal.leverage}</span>
+                </div>
+
+                <div class="section-title">Risk Management (Mandatory)</div>
+                <div class="data-row">
+                    <span class="label">Stop Loss (SL)</span>
+                    <span class="value" style="color:var(--danger)">${signal.stop_loss}</span>
+                </div>
+                <div class="data-row">
+                    <span class="label">Risk per Trade</span>
+                    <span class="value">${signal.risk_percent}</span>
+                </div>
+                <div class="data-row">
+                    <span class="label">R:R Ratio</span>
+                    <span class="value">${signal.risk_reward}</span>
+                </div>
+
+                <div class="section-title">Profit Targets</div>
+                <div class="data-row">
+                    <span class="label">Take Profit 1</span>
+                    <span class="value" style="color:var(--success)">${signal.tp1}</span>
+                </div>
+                <div class="data-row">
+                    <span class="label">Take Profit 2</span>
+                    <span class="value" style="color:var(--success)">${signal.tp2}</span>
+                </div>
+                <div class="data-row">
+                    <span class="label">Take Profit 3</span>
+                    <span class="value" style="color:var(--success)">${signal.tp3}</span>
+                </div>
+
+                <div style="margin-top:12px; font-size:12px; color:var(--warning); border:1px dashed var(--warning); padding:8px; border-radius:6px;">
+                    <strong>Strategy Note:</strong> ${signal.strategy_note}
+                </div>
+            </div>
+
+            <div class="signal-card">
+                <div class="section-title" style="margin-top:0">Analysis Rationale</div>
+                
+                <p style="margin:5px 0; font-weight:bold; font-size:13px;">📊 Technical & Quant</p>
+                <div class="rationale-box">
+                    ${signal.technical_rationale}
+                </div>
+
+                <p style="margin:10px 0 5px 0; font-weight:bold; font-size:13px;">📰 Fundamental & Sentiment</p>
+                <div class="rationale-box">
+                    ${signal.fundamental_rationale}
+                </div>
+            </div>
             
-            const colorClasses = {
-                blue: "text-blue-400 border-blue-500/30",
-                purple: "text-purple-400 border-purple-500/30",
-                emerald: "text-emerald-400 border-emerald-500/30",
-                amber: "text-amber-400 border-amber-500/30",
-                rose: "text-rose-400 border-rose-500/30"
-            };
+            <div style="text-align:center; font-size:10px; color:var(--text-secondary); margin-top:20px;">
+                Scores: Fund: ${currentData.analysis_summary.fundamental_score}/10 | 
+                Tech: ${currentData.analysis_summary.technical_score}/10 | 
+                Quant: ${currentData.analysis_summary.quant_score}/10
+            </div>
+        `;
+    }
 
-            return (
-                <div className={`border rounded-lg bg-slate-900/50 overflow-hidden mb-3 ${colorClasses[color].split(" ")[1]}`}>
-                    <button 
-                        onClick={() => setIsOpen(!isOpen)}
-                        className="w-full flex items-center justify-between p-3 hover:bg-slate-800/50 transition"
-                    >
-                        <span className={`font-semibold ${colorClasses[color].split(" ")[0]}`}>{title}</span>
-                        {isOpen ? <Icons.ChevronUp /> : <Icons.ChevronDown />}
-                    </button>
-                    {isOpen && (
-                        <div className="p-3 pt-0 text-sm text-slate-300 space-y-2">
-                            <ul className="list-disc pl-4 space-y-1">
-                                {items.map((item, idx) => (
-                                    <li key={idx} className="text-xs leading-relaxed">{item}</li>
-                                ))}
-                            </ul>
-                        </div>
-                    )}
-                </div>
-            );
-        };
+    function switchTab(tf) {
+        if(currentData) renderReport(tf);
+    }
 
-        // ==========================================
-        // PAGE: Dashboard
-        // ==========================================
-        const Dashboard = () => {
-            const [tokens, setTokens] = React.useState([]);
-            const [loading, setLoading] = React.useState(true);
-            const navigate = useNavigate();
+    // Start
+    initApp();
 
-            React.useEffect(() => {
-                const load = async () => {
-                    try {
-                        const data = await geminiService.getTrendingTokens();
-                        setTokens(data);
-                    } catch (e) {
-                        console.error(e);
-                    } finally {
-                        setLoading(false);
-                    }
-                };
-                load();
-            }, []);
-
-            return (
-                <div className="p-4 max-w-lg mx-auto pb-20">
-                    <header className="mb-6 flex items-center justify-between">
-                        <div>
-                            <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-400">TradeSignal AI</h1>
-                            <p className="text-xs text-slate-500">Real-time 5-Matrix Analysis</p>
-                        </div>
-                        <div className="h-8 w-8 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-400">
-                            <Icons.Zap />
-                        </div>
-                    </header>
-
-                    <div className="mb-4">
-                        <h2 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-3">Market Leaders & Trending</h2>
-                        {loading ? (
-                            <div className="space-y-3">
-                                {[1,2,3,4,5].map(i => (
-                                    <div key={i} className="h-16 bg-slate-800/50 rounded-xl animate-pulse"></div>
-                                ))}
-                            </div>
-                        ) : (
-                            <div className="space-y-3">
-                                {tokens.map((token, idx) => (
-                                    <div 
-                                        key={idx}
-                                        onClick={() => navigate(`/analyze/${token.symbol}`)}
-                                        className="bg-slate-800/40 p-4 rounded-xl flex items-center justify-between border border-slate-700/50 active:scale-95 transition-transform cursor-pointer"
-                                    >
-                                        <div className="flex items-center gap-3">
-                                            <div className="h-10 w-10 rounded-full bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center font-bold text-slate-200 border border-slate-600">
-                                                {token.symbol[0]}
-                                            </div>
-                                            <div>
-                                                <div className="font-bold text-slate-200">{token.symbol}</div>
-                                                <div className="text-xs text-slate-500">{token.name}</div>
-                                            </div>
-                                        </div>
-                                        <div className="text-right">
-                                            <div className="font-mono text-sm">{token.price}</div>
-                                            <div className={`text-xs ${token.change24h.includes('+') ? 'text-green-400' : 'text-red-400'}`}>
-                                                {token.change24h}
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                </div>
-            );
-        };
-
-        // ==========================================
-        // PAGE: TokenAnalysis
-        // ==========================================
-        const TokenAnalysis = () => {
-            const { symbol } = useParams();
-            const navigate = useNavigate();
-            const [data, setData] = React.useState(null);
-            const [error, setError] = React.useState(null);
-            const [activeTab, setActiveTab] = React.useState('signals'); // signals | analysis
-
-            React.useEffect(() => {
-                const analyze = async () => {
-                    try {
-                        setData(null);
-                        setError(null);
-                        const result = await geminiService.analyzeToken(symbol);
-                        setData(result);
-                    } catch (err) {
-                        setError("Analysis failed. Please try again.");
-                    }
-                };
-                if (symbol) analyze();
-            }, [symbol]);
-
-            if (error) return (
-                <div className="p-8 text-center">
-                    <div className="text-red-400 mb-4"><Icons.AlertTriangle /></div>
-                    <p className="text-slate-300 mb-4">{error}</p>
-                    <button onClick={() => navigate('/')} className="text-blue-400 underline">Go Back</button>
-                </div>
-            );
-
-            if (!data) return (
-                <div className="min-h-screen flex flex-col items-center justify-center p-4 text-center">
-                    <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-                    <h2 className="text-xl font-bold animate-pulse">Analyzing {symbol}...</h2>
-                    <p className="text-xs text-slate-500 mt-2 max-w-[200px]">Running 5x5 Matrix: Quant, Technical, Fundamental, On-Chain, Sentiment</p>
-                </div>
-            );
-
-            return (
-                <div className="p-4 max-w-lg mx-auto pb-20">
-                    {/* Header */}
-                    <div className="flex items-center gap-4 mb-6">
-                        <button onClick={() => navigate('/')} className="p-2 bg-slate-800 rounded-full hover:bg-slate-700">
-                            <Icons.ArrowLeft />
-                        </button>
-                        <div>
-                            <h1 className="text-2xl font-bold">{symbol}/USDT</h1>
-                            <div className="flex items-center gap-2 text-xs text-slate-400">
-                                <span>{data.currentPrice}</span>
-                                <span className="w-1 h-1 bg-slate-600 rounded-full"></span>
-                                <span>{new Date(data.timestamp).toLocaleTimeString()}</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Tabs */}
-                    <div className="grid grid-cols-2 gap-2 bg-slate-800/50 p-1 rounded-lg mb-6">
-                        <button 
-                            onClick={() => setActiveTab('signals')}
-                            className={`py-2 text-sm font-medium rounded-md transition ${activeTab === 'signals' ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}
-                        >
-                            Trade Signals
-                        </button>
-                        <button 
-                            onClick={() => setActiveTab('analysis')}
-                            className={`py-2 text-sm font-medium rounded-md transition ${activeTab === 'analysis' ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}
-                        >
-                            Deep Analysis
-                        </button>
-                    </div>
-
-                    {/* Content */}
-                    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-                        {activeTab === 'signals' ? (
-                            <div className="space-y-6">
-                                {data.signals.map((signal, idx) => (
-                                    <SignalCard key={idx} signal={signal} />
-                                ))}
-                                <div className="p-3 bg-blue-900/10 border border-blue-500/20 rounded-lg text-xs text-blue-200">
-                                    <strong>Disclaimer:</strong> Trading crypto futures involves high risk. These signals are AI-generated for educational purposes. Use proper risk management.
-                                </div>
-                            </div>
-                        ) : (
-                            <div className="space-y-1">
-                                <AnalysisBlock title="Fundamental Analysis" items={data.matrix.fundamental} color="blue" />
-                                <AnalysisBlock title="Technical Analysis" items={data.matrix.technical} color="purple" />
-                                <AnalysisBlock title="Quant Metrics" items={data.matrix.quant} color="emerald" />
-                                <AnalysisBlock title="Graph Theory / On-Chain" items={data.matrix.graphTheory} color="amber" />
-                                <AnalysisBlock title="Sentiment & Social" items={data.matrix.sentiment} color="rose" />
-                            </div>
-                        )}
-                    </div>
-                </div>
-            );
-        };
-
-        // ==========================================
-        // MAIN APP RENDER
-        // ==========================================
-        const App = () => {
-            React.useEffect(() => {
-                // Telegram WebApp Expansion
-                if (window.Telegram && window.Telegram.WebApp) {
-                    window.Telegram.WebApp.ready();
-                    window.Telegram.WebApp.expand();
-                }
-            }, []);
-
-            return (
-                <HashRouter>
-                    <Routes>
-                        <Route path="/" element={<Dashboard />} />
-                        <Route path="/analyze/:symbol" element={<TokenAnalysis />} />
-                    </Routes>
-                </HashRouter>
-            );
-        };
-
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<App />);
-
-    </script>
+</script>
 </body>
 </html>
